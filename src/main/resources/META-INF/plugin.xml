@@ -51,7 +51,7 @@
         <applicationService serviceImplementation="cn.luojunhui.touchfish.config.BookSettingsState"/>
         <toolWindow id="Touch Fish"
                     secondary="false"
-                    anchor="bottom"
+                    anchor="right"
                     icon="/icons/fish_14.png"
                     factoryClass="cn.luojunhui.touchfish.windwos.BookWindowFactory"/>
     </extensions>
