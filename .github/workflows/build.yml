@@ -6,6 +6,7 @@ on:
       - master
       - modern-intellij-platform
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -28,3 +29,11 @@ jobs:
 
       - name: Build plugin
         run: gradle buildPlugin --stacktrace
+
+      - name: Upload plugin ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: touch-fish-plugin
+          path: build/distributions/*.zip
+          if-no-files-found: error
+          retention-days: 30
