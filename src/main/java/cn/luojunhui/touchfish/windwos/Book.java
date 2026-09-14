@@ -5,8 +5,11 @@ import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.editor.colors.EditorColorsManager;
+import com.intellij.openapi.editor.colors.EditorColorsScheme;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.ui.components.JBScrollPane;
 import com.intellij.util.ui.UIUtil;
 
 import javax.swing.*;
@@ -35,19 +38,30 @@ public class Book {
 
     public Book(ToolWindow toolWindow) {
         Color panelBackground = UIUtil.getPanelBackground();
+        EditorColorsScheme editorScheme = EditorColorsManager.getInstance().getGlobalScheme();
 
         text = new JTextPane();
         text.setEditable(false);
         text.setOpaque(true);
         text.setBackground(panelBackground);
         text.setForeground(UIUtil.getLabelForeground());
-        text.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
+        text.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
+        text.setFont(new Font(
+                editorScheme.getEditorFontName(),
+                Font.PLAIN,
+                editorScheme.getEditorFontSize()
+        ));
 
-        JScrollPane scrollPane = new JScrollPane(text);
+        JBScrollPane scrollPane = new JBScrollPane(
+                text,
+                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+        );
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         scrollPane.setOpaque(false);
         scrollPane.getViewport().setOpaque(true);
         scrollPane.getViewport().setBackground(panelBackground);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(12);
 
         book = new JPanel(new BorderLayout());
         book.setBackground(panelBackground);
