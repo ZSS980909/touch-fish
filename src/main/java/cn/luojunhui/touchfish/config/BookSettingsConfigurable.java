@@ -5,120 +5,151 @@ import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.util.NlsContexts;
 import com.intellij.util.ExceptionUtil;
-import org.apache.commons.lang.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.Optional;
+import java.util.Objects;
 
 /**
- * 修改配置
- * @author : junhui.luo
- * @version V1.0
- * @date Date : 2020年11月27日
+ * Touch Fish settings page.
  */
 public class BookSettingsConfigurable implements Configurable {
     private static final Logger LOGGER = Logger.getInstance(BookSettingsConfigurable.class);
-    private BookSettingsComponent bookSettingsComponent;
+    private static final Charset GB18030 = Charset.forName("GB18030");
 
-    public BookSettingsConfigurable() {
-    }
+    private BookSettingsComponent bookSettingsComponent;
 
     @Override
     public @NlsContexts.ConfigurableName String getDisplayName() {
         return "Touch Fish";
     }
 
-    /**
-     * 创建一个Component用于展示
-     * @return bookSettingsComponent
-     */
     @Nullable
     @Override
     public JComponent createComponent() {
-        if (this.bookSettingsComponent == null) {
-            this.bookSettingsComponent = new BookSettingsComponent();
+        if (bookSettingsComponent == null) {
+            bookSettingsComponent = new BookSettingsComponent();
             try {
-                this.bookSettingsComponent.init();
-            }catch (Exception e){
-                String errInfo = "设置面板出现错误:\n" + ExceptionUtil.currentStackTrace();
-                LOGGER.error(errInfo,e);
+                bookSettingsComponent.init();
+            } catch (Exception e) {
+                LOGGER.error("Touch Fish settings panel initialization failed:\n" + ExceptionUtil.currentStackTrace(), e);
             }
         }
-        return this.bookSettingsComponent.getPanel();
+        return bookSettingsComponent.getPanel();
     }
 
-    /**
-     * IDEA 初始化设置页面时，判断 "Apply" 按钮是否为可用<br/>
-     * 存在条件修改返回true
-     * @return true 是；false 否
-     */
     @Override
     public boolean isModified() {
-        if (this.bookSettingsComponent == null) {
+        if (bookSettingsComponent == null) {
             return false;
         }
         BookSettingsState settings = BookSettingsState.getInstance();
-        String inputFilePath = this.bookSettingsComponent.getBookPath();
-        int inputPage = this.bookSettingsComponent.getPage();
-        int inputPageSize = this.bookSettingsComponent.getPageSize();
-        return !StringUtils.equals(settings.getBookPath().trim(), inputFilePath)
-                || settings.getPage() != inputPage
-                || settings.getPageSize() != inputPageSize;
+        return !Objects.equals(settings.getBookPath().trim(), bookSettingsComponent.getBookPath())
+                || settings.getPage() != bookSettingsComponent.getPage()
+                || settings.getPageSize() != bookSettingsComponent.getPageSize();
     }
 
-    /**
-     * 用户点击 "Apply" 按钮或 "OK" 按钮之后，会调用此方法
-     */
     @Override
     public void apply() throws ConfigurationException {
-        if (null == this.bookSettingsComponent) {
+        if (bookSettingsComponent == null) {
             return;
         }
+
         BookSettingsState settings = BookSettingsState.getInstance();
-        if (settings == null) {
-            String errInfo = "Touch Fish 工具设置对象为空,请查看idea.log查询更多信息";
-            LOGGER.error(errInfo);
-            throw new ConfigurationException(errInfo);
+        settings.setBookPath(bookSettingsComponent.getBookPath());
+        settings.setPage(bookSettingsComponent.getPage());
+        settings.setPageSize(bookSettingsComponent.getPageSize());
+
+        if (settings.getBookPath().isBlank()) {
+            settings.setLines(List.of());
+            settings.setTotalPage(0);
+            return;
         }
-        settings.setBookPath(this.bookSettingsComponent.getBookPath());
-        settings.setPage(this.bookSettingsComponent.getPage());
-        settings.setPageSize(this.bookSettingsComponent.getPageSize());
-        // 更新文本内容
-        List<String> lines;
+
         try {
-            lines = Files.readAllLines(Paths.get(settings.getBookPath()));
+            List<String> lines = readTextLines(Paths.get(settings.getBookPath()));
             int totalPage = (lines.size() + settings.getPageSize() - 1) / settings.getPageSize();
             settings.setTotalPage(totalPage);
             settings.setLines(lines);
         } catch (IOException e) {
-            throw new ConfigurationException("读取文件失败!");
+            throw new ConfigurationException("读取文件失败: " + e.getMessage());
         }
     }
 
     /**
-     * 重置值
+     * Reads common Chinese TXT encodings automatically.
+     * <p>
+     * Priority: UTF-8 BOM / UTF-16 BOM -> strict UTF-8 -> GB18030 fallback.
+     * GB18030 is backward-compatible with the vast majority of GBK/GB2312 novel files.
      */
-    @Override
-    public void reset() {
-        BookSettingsState settings = BookSettingsState.getInstance().getState();
-        String bookPath = Optional.of(settings).map(s->s.getBookPath()).orElse("");
-        int page = Optional.of(settings).map(s->s.getPage()).orElse(1);
-        int pageSize = Optional.of(settings).map(s->s.getPageSize()).orElse(5);
-        this.bookSettingsComponent.setBookPath(bookPath);
-        this.bookSettingsComponent.setPage(page);
-        this.bookSettingsComponent.setPageSize(pageSize);
+    private List<String> readTextLines(Path path) throws IOException {
+        byte[] bytes = Files.readAllBytes(path);
+        if (bytes.length == 0) {
+            return List.of();
+        }
+
+        String text;
+        if (hasPrefix(bytes, 0xEF, 0xBB, 0xBF)) {
+            text = new String(bytes, 3, bytes.length - 3, StandardCharsets.UTF_8);
+        } else if (hasPrefix(bytes, 0xFF, 0xFE)) {
+            text = new String(bytes, 2, bytes.length - 2, StandardCharsets.UTF_16LE);
+        } else if (hasPrefix(bytes, 0xFE, 0xFF)) {
+            text = new String(bytes, 2, bytes.length - 2, StandardCharsets.UTF_16BE);
+        } else {
+            text = decodeUtf8OrGb18030(bytes);
+        }
+
+        return text.lines().toList();
     }
 
-    /**
-     * IDEA 销毁设置页面后，会调用此方法
-     */
+    private String decodeUtf8OrGb18030(byte[] bytes) {
+        try {
+            return StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes))
+                    .toString();
+        } catch (CharacterCodingException ignored) {
+            LOGGER.info("TXT is not valid UTF-8, falling back to GB18030");
+            return new String(bytes, GB18030);
+        }
+    }
+
+    private boolean hasPrefix(byte[] bytes, int... prefix) {
+        if (bytes.length < prefix.length) {
+            return false;
+        }
+        for (int i = 0; i < prefix.length; i++) {
+            if ((bytes[i] & 0xFF) != prefix[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public void reset() {
+        if (bookSettingsComponent == null) {
+            return;
+        }
+        BookSettingsState settings = BookSettingsState.getInstance();
+        bookSettingsComponent.setBookPath(settings.getBookPath() == null ? "" : settings.getBookPath());
+        bookSettingsComponent.setPage(settings.getPage() == null ? 1 : settings.getPage());
+        bookSettingsComponent.setPageSize(settings.getPageSize() == null ? 5 : settings.getPageSize());
+    }
+
     @Override
     public void disposeUIResources() {
-        this.bookSettingsComponent = null;
+        bookSettingsComponent = null;
     }
 }

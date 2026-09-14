@@ -1,48 +1,40 @@
 <idea-plugin>
-    <id>cn.luojunhui.touchfish</id><!--插件id，不能和其他插件项目重复，推荐com.xxx.xxx的格式 -->
-    <name>Touch Fish</name><!--插件名称 -->
-    <version>2.3.1</version><!--插件版本号 -->
+    <id>cn.luojunhui.touchfish</id>
+    <name>Touch Fish</name>
+    <version>2.4.0</version>
     <vendor email="130046422@qq.com" url="https://github.com/luojunhui">luojunhui</vendor>
 
-    <!--插件描述信息，在这里可以介绍你的插件内容，支持HTML标签 -->
     <description>
         <![CDATA[
     <p>If you have nothing to do, why don't you try reading with this plugin?</p>
-     <ol>
-    <li>Find the "Touch Fish" settings interface under ide settings.</li>
-    <li>Choose the text file.</li>
-    <li>Enter page number and number of rows per page.</li>
-    <li>Shortcut key &uarr; read content up</li>
-    <li>Shortcut &darr; read content down</li>
-    <li>In keymap, you can set shortcut keys for text windows, which can quickly exhale and hide.</li>
-</ol>
+    <ol>
+        <li>Find the "Touch Fish" settings interface under IDE settings.</li>
+        <li>Choose the text file.</li>
+        <li>Enter page number and number of rows per page.</li>
+        <li>Shortcut key &uarr; read content up.</li>
+        <li>Shortcut &darr; read content down.</li>
+        <li>In Keymap, you can set shortcut keys for the text window.</li>
+    </ol>
     <hr>
-    <p>如果你无事可作,为何不试试用此插件看书呢?</p>
-      <ol>
-    <li>在ide设置下找到“Touch Fish”设置界面。</li>
-    <li>选择你想要阅读的txt文件</li>
-    <li>输入页码和每次阅读多少行</li>
-    <li>快捷键&uarr;向上读取内容</li>
-    <li>快捷键&darr;向下读取内容</li>
-    <li>在keymap里可以给本插件设置快捷键,可以快速呼出与隐藏</li>
-</ol>
-<p>项目地址:<a href="https://github.com/luojunhui/touch-fish">https://github.com/luojunhui/touch-fish</p>
-<p>如果有bug，请在help - Show Log in Explorer里查找idea.log相关报错信息，与我联系</p>
+    <p>如果你无事可作，为何不试试用此插件看书呢？</p>
+    <ol>
+        <li>在 IDE 设置下找到“Touch Fish”设置界面。</li>
+        <li>选择你想要阅读的 txt 文件。</li>
+        <li>输入页码和每次阅读多少行。</li>
+        <li>快捷键 &uarr; 向上读取内容。</li>
+        <li>快捷键 &darr; 向下读取内容。</li>
+        <li>在 Keymap 里可以给本插件设置快捷键，可以快速呼出与隐藏。</li>
+    </ol>
+    <p>项目地址：<a href="https://github.com/luojunhui/touch-fish">https://github.com/luojunhui/touch-fish</a></p>
+    <p>如果有 bug，请在 Help - Show Log in Finder/Explorer 中查找 idea.log。</p>
       ]]>
     </description>
 
-    <!--插件版本变更日志，支持HTML标签 -->
     <change-notes>
         <![CDATA[
         <ul>
-            <li>v2.3.2 support IntelliJ Platform version 2022.1 version</li>
-            <li>v2.3.1 using Gradle as a build system. fix bugs.</li>
-            <li>v2.3 change input file path to select file on settings form</li>
-            <li>v2.2 add change notes description in English</li>
-            <li>V2.1 add plugin description in English and modify the text of the settings interface.</li>
-            <li>V2.0 change the way to turn pages.</li>
-            <li>V1.1 fix bugs.</li>
-            <li>V1.0 release.</li>
+            <li>v2.4.0 migrate to IntelliJ Platform Gradle Plugin 2.x and restore Settings compatibility for modern IDE versions.</li>
+            <li>v2.3.2 support IntelliJ Platform version 2022.1.</li>
         </ul>
     ]]>
     </change-notes>
@@ -50,13 +42,17 @@
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <applicationConfigurable groupId="tools"
-                                 instance="cn.luojunhui.touchfish.config.BookSettingsConfigurable"
-                                 order="last"/>
-        <applicationService serviceInterface="cn.luojunhui.touchfish.config.BookSettingsState"
-                            serviceImplementation="cn.luojunhui.touchfish.config.BookSettingsState"/>
-        <toolWindow id="Touch Fish" secondary="false" anchor="bottom" icon="/icons/fish_14.png"
-                    factoryClass="cn.luojunhui.touchfish.windwos.BookWindowFactory">
-        </toolWindow>
+        <applicationConfigurable
+                parentId="tools"
+                id="cn.luojunhui.touchfish.settings"
+                displayName="Touch Fish"
+                instance="cn.luojunhui.touchfish.config.BookSettingsConfigurable"
+                order="last"/>
+        <applicationService serviceImplementation="cn.luojunhui.touchfish.config.BookSettingsState"/>
+        <toolWindow id="Touch Fish"
+                    secondary="false"
+                    anchor="right"
+                    icon="/icons/fish_14.png"
+                    factoryClass="cn.luojunhui.touchfish.windwos.BookWindowFactory"/>
     </extensions>
 </idea-plugin>
