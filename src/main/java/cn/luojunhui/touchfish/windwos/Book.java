@@ -9,7 +9,10 @@ import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.editor.colors.EditorColorsScheme;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBScrollPane;
+import com.intellij.ui.components.JBTextField;
+import com.intellij.util.ui.JBUI;
 import com.intellij.util.ui.UIUtil;
 
 import javax.swing.*;
@@ -35,6 +38,8 @@ public class Book {
 
     private final JPanel book;
     private final JTextPane text;
+    private final JBLabel pageInfoLabel;
+    private final JBTextField jumpPageField;
 
     public Book(ToolWindow toolWindow) {
         Color panelBackground = UIUtil.getPanelBackground();
@@ -63,9 +68,29 @@ public class Book {
         scrollPane.getViewport().setBackground(panelBackground);
         scrollPane.getVerticalScrollBar().setUnitIncrement(12);
 
+        pageInfoLabel = new JBLabel("第 0 / 0 页");
+        jumpPageField = new JBTextField();
+        jumpPageField.setColumns(5);
+        jumpPageField.setToolTipText("输入页码后按 Enter 跳转");
+
+        JButton jumpButton = new JButton("跳转");
+        jumpButton.addActionListener(e -> jumpToPage());
+        jumpPageField.addActionListener(e -> jumpToPage());
+
+        JPanel pageBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 3));
+        pageBar.setOpaque(true);
+        pageBar.setBackground(panelBackground);
+        pageBar.setBorder(JBUI.Borders.empty(2, 4));
+        pageBar.add(pageInfoLabel);
+        pageBar.add(new JBLabel("跳到"));
+        pageBar.add(jumpPageField);
+        pageBar.add(new JBLabel("页"));
+        pageBar.add(jumpButton);
+
         book = new JPanel(new BorderLayout());
         book.setBackground(panelBackground);
         book.add(scrollPane, BorderLayout.CENTER);
+        book.add(pageBar, BorderLayout.SOUTH);
 
         installPageActions();
         init();
@@ -75,17 +100,20 @@ public class Book {
         BookSettingsState settings = BookSettingsState.getInstance();
         if (settings == null) {
             showMessage("请先到插件面板设置阅读信息。");
+            updatePageInfo(0, 0);
             return;
         }
 
         if (StringUtil.isNotEmpty(settings.getBookPath())) {
             if (settings.getLines() == null || settings.getLines().isEmpty()) {
                 setText("已设置文本文件，但当前没有已加载的内容。\n请到 Settings → Tools → Touch Fish 点击 Apply/OK 重新加载。");
+                updatePageInfo(0, 0);
             } else {
                 readText(CURRENT);
             }
         } else {
             setText("没有文本文件路径...\n请到 Settings → Tools → Touch Fish 选择 txt 文件。");
+            updatePageInfo(0, 0);
         }
     }
 
@@ -115,17 +143,18 @@ public class Book {
         BookSettingsState settings = BookSettingsState.getInstance();
         if (settings == null) {
             showMessage("请先到插件面板设置阅读信息。");
+            updatePageInfo(0, 0);
             return;
         }
 
         List<String> allLines = settings.getLines();
         if (allLines == null || allLines.isEmpty()) {
             setText("当前没有可显示的文本内容。\n请到 Settings → Tools → Touch Fish 重新选择文件并点击 Apply/OK。");
+            updatePageInfo(0, 0);
             return;
         }
 
-        int pageSize = settings.getPageSize() == null || settings.getPageSize() < 1
-                ? 3 : settings.getPageSize();
+        int pageSize = getPageSize(settings);
         int totalPage = Math.max(1, (allLines.size() + pageSize - 1) / pageSize);
         settings.setTotalPage(totalPage);
 
@@ -145,8 +174,63 @@ public class Book {
             }
         }
 
+        showPage(settings, allLines, targetPage, pageSize, totalPage);
+    }
+
+    private void jumpToPage() {
+        BookSettingsState settings = BookSettingsState.getInstance();
+        if (settings == null || settings.getLines() == null || settings.getLines().isEmpty()) {
+            showMessage("当前没有可跳转的文本内容。");
+            return;
+        }
+
+        String input = jumpPageField.getText() == null ? "" : jumpPageField.getText().trim();
+        if (input.isEmpty()) {
+            jumpPageField.requestFocusInWindow();
+            return;
+        }
+
+        final int requestedPage;
+        try {
+            requestedPage = Integer.parseInt(input);
+        } catch (NumberFormatException e) {
+            showMessage("请输入有效的页码。");
+            jumpPageField.selectAll();
+            return;
+        }
+
+        int pageSize = getPageSize(settings);
+        int totalPage = Math.max(1, (settings.getLines().size() + pageSize - 1) / pageSize);
+        int targetPage = Math.max(1, Math.min(requestedPage, totalPage));
+
+        if (requestedPage != targetPage) {
+            showMessage("页码范围是 1 - " + totalPage + "，已跳转到第 " + targetPage + " 页。");
+        }
+
+        showPage(settings, settings.getLines(), targetPage, pageSize, totalPage);
+        jumpPageField.setText("");
+        text.requestFocusInWindow();
+    }
+
+    private void showPage(BookSettingsState settings,
+                          List<String> allLines,
+                          int targetPage,
+                          int pageSize,
+                          int totalPage) {
         settings.setPage(targetPage);
+        settings.setTotalPage(totalPage);
         setText(readFromPage(allLines, targetPage, pageSize));
+        updatePageInfo(targetPage, totalPage);
+    }
+
+    private int getPageSize(BookSettingsState settings) {
+        return settings.getPageSize() == null || settings.getPageSize() < 1
+                ? 3 : settings.getPageSize();
+    }
+
+    private void updatePageInfo(int currentPage, int totalPage) {
+        pageInfoLabel.setText("第 " + currentPage + " / " + totalPage + " 页");
+        jumpPageField.setEnabled(totalPage > 0);
     }
 
     private List<String> readFromPage(List<String> list, int page, int pageSize) {
