@@ -7,6 +7,7 @@ import com.intellij.notification.Notifications;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.util.ui.UIUtil;
 
 import javax.swing.*;
 import java.awt.*;
@@ -33,14 +34,23 @@ public class Book {
     private final JTextPane text;
 
     public Book(ToolWindow toolWindow) {
+        Color panelBackground = UIUtil.getPanelBackground();
+
         text = new JTextPane();
         text.setEditable(false);
+        text.setOpaque(true);
+        text.setBackground(panelBackground);
+        text.setForeground(UIUtil.getLabelForeground());
         text.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
 
         JScrollPane scrollPane = new JScrollPane(text);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(true);
+        scrollPane.getViewport().setBackground(panelBackground);
 
         book = new JPanel(new BorderLayout());
+        book.setBackground(panelBackground);
         book.add(scrollPane, BorderLayout.CENTER);
 
         installPageActions();
